@@ -1,3 +1,6 @@
+Author: Oghenekaro Oboido
+
+
 Explanation of the Application:
 
 SNS Topic: Represents the event of an order being placed. When an order is placed, a message is published to this topic.
