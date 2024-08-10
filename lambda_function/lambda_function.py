@@ -96,3 +96,4 @@ def update_inventory(items):
             },
             ReturnValues="UPDATED_NEW"
         )
+
