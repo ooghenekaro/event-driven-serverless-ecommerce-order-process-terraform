@@ -10,10 +10,17 @@ INVENTORY_TABLE = os.environ['INVENTORY_TABLE']
 
 def lambda_handler(event, context):
     for record in event['Records']:
-        order = json.loads(record['body'])
+        sns_message = json.loads(record['body'])  # Load the SQS body
+        order = json.loads(sns_message['Message'])  # Load the actual order from the SNS message
+        
+        # Now order should contain the order_id and other information
+        if 'order_id' not in order:
+            print(f"Error: 'order_id' not found in the order: {order}")
+            continue  # Skip this record
 
-        # Process order: store in DynamoDB
         order_id = order['order_id']
+        
+        # Process order: store in DynamoDB
         store_order_in_db(order)
         
         # Send confirmation email
@@ -33,7 +40,7 @@ def store_order_in_db(order):
 
 def send_confirmation_email(customer_email, order_id):
     response = ses.send_email(
-        Source='no-reply@yourdomain.com',  # We need to Replace with a verified SES email
+        Source='no-reply@yourdomain.com',  # Replace with a verified SES email
         Destination={
             'ToAddresses': [customer_email]
         },
@@ -57,3 +64,4 @@ def update_inventory(items):
             UpdateExpression="SET quantity = quantity - :val",
             ExpressionAttributeValues={':val': item['quantity']}
         )
+
