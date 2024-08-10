@@ -74,15 +74,6 @@ def send_confirmation_email(customer_email, order_id):
         }
     )
 
-#def update_inventory(items):
-#    table = dynamodb.Table(INVENTORY_TABLE)
-#    for item in items:
-#        response = table.update_item(
-#            Key={'item_id': item['item_id']},
-#            UpdateExpression="SET quantity = quantity - :val",
-#            ExpressionAttributeValues={':val': item['quantity']}
-#        )
-
 
 def update_inventory(items):
     table = dynamodb.Table(INVENTORY_TABLE)
@@ -96,4 +87,3 @@ def update_inventory(items):
             },
             ReturnValues="UPDATED_NEW"
         )
-
