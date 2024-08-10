@@ -25,5 +25,9 @@ terraform.rc
 # Ignore .terraform.lock.hcl files
 .terraform.lock.hcl
 
+# local lambda zip
+lambda_function.zip
+
 # Ignore crash log files
 crash.log
+

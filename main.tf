@@ -10,6 +10,7 @@ resource "aws_sns_topic" "order_notifications" {
 # SQS Queue for processing orders
 resource "aws_sqs_queue" "order_queue" {
   name = "order-processing-queue"
+ visibility_timeout_seconds = 300
 }
 
 # Subscribe SQS Queue to SNS Topic
@@ -65,6 +66,22 @@ resource "aws_dynamodb_table" "inventory_table" {
     type = "S"
   }
 }
+
+resource "aws_dynamodb_table" "processed_orders" {
+  name         = "processed-orders-table"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "order_id"
+
+  attribute {
+    name = "order_id"
+    type = "S"
+  }
+
+  tags = {
+    Name = "processed-orders-table"
+  }
+}
+
 
 # IAM Role for Lambda Function
 resource "aws_iam_role" "lambda_exec_role" {
@@ -135,7 +152,7 @@ resource "aws_lambda_function" "order_processing_lambda" {
   function_name = "process-order"
 
   filename         = data.archive_file.lambda_zip.output_path
-  runtime          = "python3.8"
+  runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   role             = aws_iam_role.lambda_exec_role.arn
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
@@ -144,6 +161,7 @@ resource "aws_lambda_function" "order_processing_lambda" {
     variables = {
       ORDER_TABLE     = aws_dynamodb_table.orders_table.name
       INVENTORY_TABLE = aws_dynamodb_table.inventory_table.name
+      PROCESSED_ORDERS_TABLE = aws_dynamodb_table.processed_orders.name
     }
   }
 }
