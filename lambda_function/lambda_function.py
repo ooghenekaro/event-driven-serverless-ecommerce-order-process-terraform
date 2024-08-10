@@ -7,19 +7,25 @@ ses = boto3.client('ses')
 
 ORDER_TABLE = os.environ['ORDER_TABLE']
 INVENTORY_TABLE = os.environ['INVENTORY_TABLE']
+PROCESSED_ORDERS_TABLE = os.environ['PROCESSED_ORDERS_TABLE']
 
 def lambda_handler(event, context):
     for record in event['Records']:
         sns_message = json.loads(record['body'])  # Load the SQS body
         order = json.loads(sns_message['Message'])  # Load the actual order from the SNS message
         
-        # Now order should contain the order_id and other information
+        # Check if 'order_id' is in the order
         if 'order_id' not in order:
             print(f"Error: 'order_id' not found in the order: {order}")
             continue  # Skip this record
 
         order_id = order['order_id']
         
+        # Check if this order has already been processed
+        if has_order_been_processed(order_id):
+            print(f"Order {order_id} has already been processed. Skipping.")
+            continue  # Skip this record
+
         # Process order: store in DynamoDB
         store_order_in_db(order)
         
@@ -28,11 +34,23 @@ def lambda_handler(event, context):
         
         # Update inventory
         update_inventory(order['items'])
+
+        # Mark the order as processed
+        mark_order_as_processed(order_id)
         
     return {
         'statusCode': 200,
         'body': json.dumps('Order processed successfully!')
     }
+
+def has_order_been_processed(order_id):
+    table = dynamodb.Table(PROCESSED_ORDERS_TABLE)
+    response = table.get_item(Key={'order_id': order_id})
+    return 'Item' in response
+
+def mark_order_as_processed(order_id):
+    table = dynamodb.Table(PROCESSED_ORDERS_TABLE)
+    table.put_item(Item={'order_id': order_id})
 
 def store_order_in_db(order):
     table = dynamodb.Table(ORDER_TABLE)
@@ -40,7 +58,7 @@ def store_order_in_db(order):
 
 def send_confirmation_email(customer_email, order_id):
     response = ses.send_email(
-        Source='no-reply@yourdomain.com',  # Replace with a verified SES email
+        Source='karooboido@gmail.com',  # Replace with a verified SES email
         Destination={
             'ToAddresses': [customer_email]
         },
@@ -56,12 +74,16 @@ def send_confirmation_email(customer_email, order_id):
         }
     )
 
+
 def update_inventory(items):
     table = dynamodb.Table(INVENTORY_TABLE)
     for item in items:
         response = table.update_item(
             Key={'item_id': item['item_id']},
-            UpdateExpression="SET quantity = quantity - :val",
-            ExpressionAttributeValues={':val': item['quantity']}
+            UpdateExpression="SET quantity = if_not_exists(quantity, :start) - :val",
+            ExpressionAttributeValues={
+                ':val': item['quantity'],
+                ':start': 0  # Default start value if quantity doesn't exist
+            },
+            ReturnValues="UPDATED_NEW"
         )
-
